@@ -99,6 +99,56 @@
             content: '📖'; /* Icône pour "About" */
             margin-right: 8px;
         }
+
+        .export-block {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.export-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: none;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.export-btn:hover {
+    background-color: #0056b3;
+}
+
+.export-desc {
+    color: #666;
+    font-size: 14px;
+}
+
+.desc-icon::before {
+    content: 'ℹ️'; /* Utilisez un caractère Unicode comme icône. Exemple : le symbole d'information */
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.export-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: none;
+    position: relative; /* Important pour positionner l'icône correctement */
+    font-family: Arial, sans-serif; /* Assurez-vous que la police supporte le caractère Unicode */
+}
+
+.export-btn::before {
+    content: '\1F4E4'; /* Caractère Unicode pour une icône d'envoi/Export. */
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 16px; /* Vous pouvez ajuster la taille de l'icône ici */
+}
+
     </style>
 </head>
 <body>
@@ -113,13 +163,24 @@
 </header>
 
 <div class="container">
-    <div class="upload-form">
-        <h2 class="upload-title">Upload a File</h2>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" id="fileUpload" name="fileUpload">
-            <button type="submit" class="upload-btn">Upload</button>
-        </form>
+
+<div class="upload-form">
+    <h2 class="upload-title">Upload a File</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" id="fileUpload" name="fileUpload">
+        <button type="submit" class="upload-btn">Upload</button>
+    </form>
+</div>
+
+
+
+<div class="upload-form">
+    <div class="export-block">
+        <button class="export-btn">Export</button>
+        <p class="export-desc"><span class="desc-icon"></span>This is a small description for the export functionality.</p>
     </div>
+</div>
+
     <div class="items-list">
         <h2 class="list-title">List of Items</h2>
         <ul>
