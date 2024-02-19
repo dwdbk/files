@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload with List Display</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        header {
+            /*background-color: #005830; /* Vert Crédit Agricole */
+            background-color: rgb(48, 130, 118);
+            color: #fff;
+            text-align: center;
+            padding: 1rem 0;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: start;
+            padding: 20px;
+            gap: 20px; /* Espace entre les éléments */
+        }
+        .upload-form, .items-list {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 50%;
+        }
+        footer {
+            /*background-color: #003820; /* Vert foncé */
+            background-color: rgb(48, 130, 118);
+            color: #fff;
+            text-align: center;
+            padding: 1rem 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+        button {
+            /*background-color: #008000; /* Vert */
+            background-color: rgb(48, 130, 118);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <nav>
+        <a href="#">Home</a>
+        <a href="#">Web-Console</a>
+        <a href="#">Logout</a>
+    </nav>
+</header>
+
+<div class="container">
+    <div class="upload-form">
+        <h2>Upload a File</h2>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" id="fileUpload" name="fileUpload">
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+    <div class="items-list">
+        <h2>List of Items</h2>
+        <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+            <li>Item 3</li>
+            <!-- Add more items as needed -->
+        </ul>
+    </div>
+</div>
+
+<footer>
+    <p>&copy; 2024 DNA SLE. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
