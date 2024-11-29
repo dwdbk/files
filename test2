@@ -1,0 +1,122 @@
+@ExtendWith(MockitoExtension.class)
+public class ThirdPartyLoaderBeanTest {
+
+    @Mock
+    private TokenSupplier tokenSupplier;
+
+    @Mock
+    private WebClient webClient;
+
+    @InjectMocks
+    private ThirdPartyLoaderBean thirdPartyLoaderBean;
+
+    @Test
+    public void testInitAllCacibThirdParties_Success() throws Exception {
+        // Mock TokenSupplier behavior
+        when(tokenSupplier.get()).thenReturn(new Token("valid_token"));
+
+        // Mock WebClient behavior (assuming successful response)
+        Mono<GraphQLResponse> mockResponse = Mono.just(new MockGraphQLResponse(
+                "{\"ALL_CACIB_THIRDPARTIES\": [{\"ricosId\": \"12345\"}]}"));
+        when(webClient.mutate().build().execute()).thenReturn(mockResponse);
+
+        // Call the method
+        thirdPartyLoaderBean.initAllCacibThirdParties();
+
+        // Assertions
+        verify(tokenSupplier, times(1)).get();
+        verify(webClient, times(1)).mutate().build().execute();
+        assertEquals(1, thirdPartyLoaderBean.getCacibThirdParties().size());
+    }
+
+    @Test
+    public void testInitAllCacibThirdParties_Error() throws Exception {
+        // Mock TokenSupplier behavior
+        when(tokenSupplier.get()).thenReturn(new Token("valid_token"));
+
+        // Mock WebClient behavior (assuming error response)
+        when(webClient.mutate().build().execute()).thenReturn(Mono.error(new RuntimeException("Gateway Error")));
+
+        // Call the method
+        thirdPartyLoaderBean.initAllCacibThirdParties();
+
+        // Assertions
+        verify(tokenSupplier, times(1)).get();
+        verify(webClient, times(1)).mutate().build().execute();
+        assertEquals(0, thirdPartyLoaderBean.getCacibThirdParties().size());
+    }
+
+    // Similar tests for doQuery and doAliasQuery methods
+
+    private static class MockGraphQLResponse implements GraphQLResponse {
+        private final String data;
+
+        public MockGraphQLResponse(String data) {
+            this.data = data;
+        }
+
+        @Override
+        public String getData() {
+            return data;
+        }
+
+        @Override
+        public List<Map<String, Object>> getErrors() {
+            return Collections.emptyList();
+        }
+    }
+
+
+    @Test
+    public void testDoQuery_Success() {
+        // Mock WebClient behavior
+        Mono<GraphQLResponse> mockResponse = Mono.just(new MockGraphQLResponse("{\"data\": {\"ALL_CACIB_THIRDPARTIES\": [{\"ricosId\": \"12345\"}]}}"));
+        when(webClient.mutate().build().execute()).thenReturn(mockResponse);
+
+        // Call the method
+        List<CPY> result = thirdPartyLoaderBean.doQuery("query { ALL_CACIB_THIRDPARTIES { ricosId } }", "ALL_CACIB_THIRDPARTIES", new TypeRef<>() {});
+
+        // Assertions
+        assertEquals(1, result.size());
+        assertEquals("12345", result.get(0).getRicosId());
+    }
+
+    @Test
+    public void testDoQuery_Error() {
+        // Mock WebClient behavior
+        when(webClient.mutate().build().execute()).thenReturn(Mono.error(new RuntimeException("Gateway Error")));
+
+        // Call the method
+        List<CPY> result = thirdPartyLoaderBean.doQuery("query { ALL_CACIB_THIRDPARTIES { ricosId } }", "ALL_CACIB_THIRDPARTIES", new TypeRef<>() {});
+
+        // Assertions
+        assertNull(result);
+    }
+
+    @Test
+    public void testDoAliasQuery_Success() {
+        // Mock WebClient behavior
+        Mono<GraphQLResponse> mockResponse = Mono.just(new MockGraphQLResponse("{\"data\": {\"alias1\": {\"ricosId\": \"12345\"}, \"alias2\": {\"ricosId\": \"67890\"}}}"));
+        when(webClient.mutate().build().execute()).thenReturn(mockResponse);
+
+        // Call the method
+        Map<String, CPY> result = thirdPartyLoaderBean.doAliasQuery("query { alias1 { ricosId } alias2 { ricosId } }", "queryName", "", new TypeRef<>(), List.of("alias1", "alias2"));
+
+        // Assertions
+        assertEquals(2, result.size());
+        assertEquals("12345", result.get("alias1").getRicosId());
+        assertEquals("67890", result.get("alias2").getRicosId());
+    }
+
+    @Test
+    public void testDoAliasQuery_Error() {
+        // Mock WebClient behavior
+        when(webClient.mutate().build().execute()).thenReturn(Mono.error(new RuntimeException("Gateway Error")));
+
+        // Call the method
+        Map<String, CPY> result = thirdPartyLoaderBean.doAliasQuery("query { alias1 { ricosId } alias2 { ricosId } }", "queryName", "", new TypeRef<>(), List.of("alias1", "alias2"));
+
+        // Assertions
+        assertEquals(0, result.size());
+    }
+}
