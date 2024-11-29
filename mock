@@ -1,42 +1,50 @@
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 
-@SpringBootTest 1 
-public class LscsadTokenSupplierTest {
+import static org.mockito.Mockito.*;
 
-    @InjectMocks
-    private LscsadTokenSupplier lscsadTokenSupplier;
-
-    @Mock
-    private LscsadTokenSupplierProperties props;
-
-    @Mock
-    private ClientRegistrationRepository clientRegistrationRepository;
-
-    @Mock
-    private TokenSupplier.Type tokenSupplierType;
-
-    @Mock
-    private ClientRegistration clientRegistration;
+class CommonRepositoryHelperTest {
 
     @Test
-    public void testLscsadTokenSupplier() {
-        // Setup mocks
-        when(props.getType()).thenReturn(tokenSupplierType);
-        when(props.getProvider()).thenReturn("myProvider");
-        when(clientRegistrationRepository.findByRegistrationId(props.getProvider())).thenReturn(clientRegistration);
-        when(tokenSupplierType.generateSupplier(clientRegistration)).thenReturn(() -> "myToken");
+    void testMapProjectionWithDealEquityAmountProjection() {
+        // Arrange
+        CommonRepositoryHelper helper = new CommonRepositoryHelper();
+        CriteriaBuilder builder = mock(CriteriaBuilder.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Root<?> root = mock(Root.class);
 
-        // Call the method
-        TokenSupplier tokenSupplier = lscsadTokenSupplier.lscsadTokenSupplier(props, clientRegistrationRepository);
+        // Mock behavior
+        var rootJoin = mock(Root.class);
+        when(root.join("deals")).thenReturn(rootJoin);
+        when(rootJoin.get("amount")).thenReturn(mock(javax.persistence.criteria.Path.class));
+        when(rootJoin.get("functionalId")).thenReturn(mock(javax.persistence.criteria.Path.class));
+        when(rootJoin.get("functionalVersion")).thenReturn(mock(javax.persistence.criteria.Path.class));
+        
+        // Act
+        helper.mapProjection(root, query, "DealEquityAmountProjection");
 
-        // Assert the result
-        assertEquals("myToken", tokenSupplier.get());
+        // Assert
+        verify(query, times(1)).multiselect(any(), any(), any());
+    }
+
+    @Test
+    void testMapProjectionWithUnsupportedProjectionType() {
+        // Arrange
+        CommonRepositoryHelper helper = new CommonRepositoryHelper();
+        CriteriaBuilder builder = mock(CriteriaBuilder.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        Root<?> root = mock(Root.class);
+
+        // Act
+        helper.mapProjection(root, query, "UnsupportedProjection");
+
+        // Assert
+        // In this case, you can verify the logger or ensure no multiselect is called.
+        // For simplicity, verifying that no multiselect is invoked:
+        verifyNoInteractions(query);
     }
 }
