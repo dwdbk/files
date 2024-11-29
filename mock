@@ -1,0 +1,46 @@
+import com.cacib.loanscape.utils.CommonRepositoryHelper;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
+
+import javax.persistence.criteria.*;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+public class CommonRepositoryHelperTest {
+
+    @Mock
+    private Root<Object> root;
+
+    @Mock
+    private CriteriaQuery<?> query;
+
+    @Mock
+    private CriteriaBuilder builder;
+
+    @Test
+    public void mapProjection_DealEquityAmountProjection() {
+        when(root.join(CommonRepositoryHelper.DEALS)).thenReturn(root);
+        when(root.get("amount")).thenReturn(builder.sum(root.get("amount")));
+        when(root.get(CommonRepositoryHelper.FUNCTIONAL_ID)).thenReturn(builder.sum(root.get(CommonRepositoryHelper.FUNCTIONAL_ID)));
+        when(root.get(CommonRepositoryHelper.FUNCTIONAL_VERSION)).thenReturn(builder.sum(root.get(CommonRepositoryHelper.FUNCTIONAL_VERSION)));
+
+        CommonRepositoryHelper.mapProjection(root, query, builder, CommonRepositoryHelper.DealEquityAmountProjection.class);
+
+        // Verify the multiselect call with the expected fields
+        verify(query).multiselect(
+                builder.sum(root.get("amount")),
+                builder.sum(root.get(CommonRepositoryHelper.FUNCTIONAL_ID)).alias("dealFunctionalId"),
+                builder.sum(root.get(CommonRepositoryHelper.FUNCTIONAL_VERSION)).alias("dealFunctionalVersion")
+        );
+    }
+
+    // Similar tests for other projection types (TRANCHE_SUB_PARTICIPANT_SUM_PROJECTION, FUNCTIONAL_ID_AND_VERSION_PROJECTION)
+}
