@@ -1,9 +1,10 @@
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Root;
 
 import static org.mockito.Mockito.*;
 
@@ -12,39 +13,72 @@ class CommonRepositoryHelperTest {
     @Test
     void testMapProjectionWithDealEquityAmountProjection() {
         // Arrange
-        CommonRepositoryHelper helper = new CommonRepositoryHelper();
         CriteriaBuilder builder = mock(CriteriaBuilder.class);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        Root<?> root = mock(Root.class);
+        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
+        Root<Object> root = mock(Root.class);
 
-        // Mock behavior
-        var rootJoin = mock(Root.class);
-        when(root.join("deals")).thenReturn(rootJoin);
-        when(rootJoin.get("amount")).thenReturn(mock(javax.persistence.criteria.Path.class));
-        when(rootJoin.get("functionalId")).thenReturn(mock(javax.persistence.criteria.Path.class));
-        when(rootJoin.get("functionalVersion")).thenReturn(mock(javax.persistence.criteria.Path.class));
-        
+        Path<Object> amountPath = mock(Path.class);
+        Path<Object> functionalIdPath = mock(Path.class);
+        Path<Object> functionalVersionPath = mock(Path.class);
+
+        var dealJoin = mock(Root.class);
+
+        when(root.join("deals")).thenReturn(dealJoin);
+        when(dealJoin.get("amount")).thenReturn(amountPath);
+        when(dealJoin.get("functionalId")).thenReturn(functionalIdPath);
+        when(dealJoin.get("functionalVersion")).thenReturn(functionalVersionPath);
+
         // Act
-        helper.mapProjection(root, query, "DealEquityAmountProjection");
+        CommonRepositoryHelper.mapProjection(root, query, "DealEquityAmountProjection");
 
         // Assert
-        verify(query, times(1)).multiselect(any(), any(), any());
+        verify(query, times(1)).multiselect(
+                eq(amountPath),
+                eq(functionalIdPath),
+                eq(functionalVersionPath)
+        );
+    }
+
+    @Test
+    void testMapProjectionWithTrancheSubParticipantSumProjection() {
+        // Arrange
+        CriteriaBuilder builder = mock(CriteriaBuilder.class);
+        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
+        Root<Object> root = mock(Root.class);
+
+        Path<Object> treasuryCommitmentAmountPath = mock(Path.class);
+        Path<Object> treasuryGrossCommitmentSharePath = mock(Path.class);
+        Path<Object> riskCommitmentAmountPath = mock(Path.class);
+        Path<Object> riskGrossCommitmentSharePath = mock(Path.class);
+
+        when(root.get("treasuryCommitmentAmount")).thenReturn(treasuryCommitmentAmountPath);
+        when(root.get("treasuryGrossCommitmentShare")).thenReturn(treasuryGrossCommitmentSharePath);
+        when(root.get("riskCommitmentAmount")).thenReturn(riskCommitmentAmountPath);
+        when(root.get("riskGrossCommitmentShare")).thenReturn(riskGrossCommitmentSharePath);
+
+        // Act
+        CommonRepositoryHelper.mapProjection(root, query, "PoolTrancheSubParticipantSumProjection");
+
+        // Assert
+        verify(query, times(1)).multiselect(
+                eq(treasuryCommitmentAmountPath),
+                eq(treasuryGrossCommitmentSharePath),
+                eq(riskCommitmentAmountPath),
+                eq(riskGrossCommitmentSharePath)
+        );
     }
 
     @Test
     void testMapProjectionWithUnsupportedProjectionType() {
         // Arrange
-        CommonRepositoryHelper helper = new CommonRepositoryHelper();
         CriteriaBuilder builder = mock(CriteriaBuilder.class);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        Root<?> root = mock(Root.class);
+        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
+        Root<Object> root = mock(Root.class);
 
         // Act
-        helper.mapProjection(root, query, "UnsupportedProjection");
+        CommonRepositoryHelper.mapProjection(root, query, "UnsupportedProjection");
 
         // Assert
-        // In this case, you can verify the logger or ensure no multiselect is called.
-        // For simplicity, verifying that no multiselect is invoked:
         verifyNoInteractions(query);
     }
 }
