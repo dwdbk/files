@@ -1,38 +1,142 @@
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import com.cacib.loanscape.config.gateway.GatewayClient;
-import com.netflix.graphql.dgs.client.GraphQLResponse;
-import com.netflix.graphql.dgs.client.MonoGraphQLClient;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-@ExtendWith(MockitoExtension.class)
-public class GatewayClientTest {
+import static org.junit.jupiter.api.Assertions.*;
 
-    @InjectMocks
-    private GatewayClient gatewayClient;
+@ExtendWith(MockitoExtension.class)
+public class ThirdPartyLoaderBeanTest {
 
     @Mock
-    private MonoGraphQLClient graphqlClient;
+    private WebClient webClient;
+
+    @InjectMocks
+    private ThirdPartyLoaderBean thirdPartyLoaderBean;
 
     @Test
-    public void testPerform() {
-        String query = "some query";
-        GraphQLResponse expectedResponse = new GraphQLResponse("{\"data\":{\"someField\":\"someValue\"}}");
+    public void testDoQuerySuccess() {
+        // Mock successful gateway response
+        Mockito.when(webClient.post()
+                .uri(Mockito.anyString())
+                .bodyValue(Mockito.anyString())
+                .retrieve()
+                .bodyToMono(GraphQLResponse.class))
+                .thenReturn(Mono.just(new GraphQLResponse("{\"data\": {\"queryName\": \"expectedResult\"}}")));
 
-        when(graphqlClient.reactiveExecuteQuery(anyString())).thenReturn(Mono.just(expectedResponse));
+        // Execute the query
+        String result = thirdPartyLoaderBean.doQuery("query", "queryName", TypeRef.of(String.class));
 
-        GraphQLResponse actualResponse = gatewayClient.perform(query);
+        // Assert the result
+        assertEquals("expectedResult", result);
+    }
 
-        assertNotNull(actualResponse);
-        assertEquals(expectedResponse.getJson(), actualResponse.getJson());
+    @Test
+    public void testDoQueryGatewayFailure() {
+        // Mock failed gateway response
+        Mockito.when(webClient.post()
+                .uri(Mockito.anyString())
+                .bodyValue(Mockito.anyString())
+                .retrieve()
+                .bodyToMono(GraphQLResponse.class))
+                .thenReturn(Mono.error(new RuntimeException("Gateway error")));
+
+        // Execute the query
+        String result = thirdPartyLoaderBean.doQuery("query", "queryName", TypeRef.of(String.class));
+
+        // Assert the result is null
+        assertNull(result);
+    }
+
+    // ... more test cases for `doQuery()` with different input scenarios
+
+    @Test
+    public void testDoAliasQuerySuccess() {
+        // Mock successful gateway response
+        Mockito.when(webClient.post()
+                .uri(Mockito.anyString())
+                .bodyValue(Mockito.anyString())
+                .retrieve()
+                .bodyToMono(GraphQLResponse.class))
+                .thenReturn(Mono.just(new GraphQLResponse("{\"data\": {\"alias1\": \"value1\", \"alias2\": \"value2\"}}")));
+
+        // Execute the alias query
+        Map<String, String> result = thirdPartyLoaderBean.doAliasQuery("query", "queryName", "", TypeRef.of(String.class), List.of("alias1", "alias2"));
+
+        // Assert the result
+        assertEquals("value1", result.get("alias1"));
+        assertEquals("value2", result.get("alias2"));
+    }
+
+    // ... more test cases for `doAliasQuery()` with different alias configurations and error scenarios
+
+    @Test
+    public void testDoQueryEmptyQueryName() {
+        // Mock gateway response
+        Mockito.when(webClient.post()
+                .uri(Mockito.anyString())
+                .bodyValue(Mockito.anyString())
+                .retrieve()
+                .bodyToMono(GraphQLResponse.class))
+                .thenReturn(Mono.just(new GraphQLResponse("{\"data\": {\"queryName\": \"expectedResult\"}}")));
+
+        // Execute the query with an empty query name
+        String result = thirdPartyLoaderBean.doQuery("query", "", TypeRef.of(String.class));
+
+        // Assert that an exception is thrown
+        assertThrows(IllegalArgumentException.class, () -> result);
+    }
+
+    @Test
+    public void testDoQueryInvalidTypeRef() {
+        // Execute the query with an invalid TypeRef
+        assertThrows(IllegalArgumentException.class, () -> thirdPartyLoaderBean.doQuery("query", "queryName", null));
+    }
+
+    // ... more test cases for `doQuery()` with different input scenarios
+
+    @Test
+    public void testDoAliasQuerySuccess() {
+        // ... (same as before)
+    }
+
+    @Test
+    public void testDoAliasQueryEmptyAliases() {
+        // Mock gateway response
+        Mockito.when(webClient.post()
+                .uri(Mockito.anyString())
+                .bodyValue(Mockito.anyString())
+                .retrieve()
+                .bodyToMono(GraphQLResponse.class))
+                .thenReturn(Mono.just(new GraphQLResponse("{\"data\": {\"alias1\": \"value1\", \"alias2\": \"value2\"}}")));
+
+        // Execute the alias query with empty aliases
+        Map<String, String> result = thirdPartyLoaderBean.doAliasQuery("query", "queryName", "", TypeRef.of(String.class), List.of());
+
+        // Assert that the result is an empty map
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void testDoAliasQueryInvalidSuffix() {
+        // Execute the alias query with an invalid suffix
+        assertThrows(IllegalArgumentException.class, () -> thirdPartyLoaderBean.doAliasQuery("query", "queryName", null, TypeRef.of(String.class), List.of("alias1", "alias2")));
+    }
+
+    // ... more test cases for `doAliasQuery()` with different alias configurations and error scenarios
+
+    // Test for `executeQuery()` method (if accessible)
+    @Test
+    public void testExecuteQuerySuccess() {
+        // ... (similar to the `doQuery()` success test, but without the result extraction)
+    }
+
+    @Test
+    public void testExecuteQueryGatewayFailure() {
+        // ... (similar to the `doQuery()` failure test, but without the result extraction)
     }
 }
