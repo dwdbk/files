@@ -83,4 +83,84 @@ class ThirdPartyLoaderBeanTest {
         assertThat(recordedRequest.getPath()).isEqualTo("/graphql");
         assertThat(recordedRequest.getHeader("Authorization")).isEqualTo("Bearer mock-token");
     }
+
+    package com.cacib.loanscape.config;
+
+import com.cacib.loanscape.common.external.CPY;
+import com.cacib.loanscape.oidc.TokenSupplier;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
+class ThirdPartyLoaderBeanTest {
+
+    private MockWebServer mockWebServer;
+
+    private ThirdPartyLoaderBean thirdPartyLoaderBean;
+
+    private TokenSupplier tokenSupplier;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // Start MockWebServer
+        mockWebServer = new MockWebServer();
+        mockWebServer.start();
+
+        // Mock TokenSupplier
+        tokenSupplier = mock(TokenSupplier.class);
+        when(tokenSupplier.get()).thenReturn(() -> "mock-token");
+
+        // Initialize ThirdPartyLoaderBean with WebClient pointing to MockWebServer
+        thirdPartyLoaderBean = new ThirdPartyLoaderBean(tokenSupplier);
+        thirdPartyLoaderBean.setGatewayUrl(mockWebServer.url("/graphql").toString());
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        // Shut down MockWebServer
+        mockWebServer.shutdown();
+    }
+
+    @Test
+    void testInitAllCacibThirdPartiesWithWebClient() {
+        // Arrange
+        String graphqlResponse = """
+                {
+                  "data": {
+                    "ALL_CACIB_THIRDPARTIES": [
+                      {
+                        "ricosId": "testRicosId",
+                        "isCacibEntity": "YES"
+                      }
+                    ]
+                  }
+                }
+                """;
+        mockWebServer.enqueue(new MockResponse()
+                .setBody(graphqlResponse)
+                .addHeader("Content-Type", "application/json"));
+
+        // Act
+        thirdPartyLoaderBean.initAllCacibThirdParties();
+
+        // Assert
+        List<CPY> thirdParties = thirdPartyLoaderBean.getCacibThirdParties();
+        assertThat(thirdParties).isNotNull().hasSize(1);
+        assertThat(thirdParties.get(0).getRicosId()).isEqualTo("testRicosId");
+        assertThat(thirdParties.get(0).getIsCacibEntity()).isEqualTo("YES");
+
+        // Verify that the WebClient sent the request
+        var recordedRequest = mockWebServer.takeRequest();
+        assertThat(recordedRequest.getPath()).isEqualTo("/graphql");
+        assertThat(recordedRequest.getHeader("Authorization")).isEqualTo("Bearer mock-token");
+    }
+}
+
 }
