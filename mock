@@ -1,84 +1,105 @@
+package com.cacib.loanscape.config;
+
+import com.cacib.loanscape.common.external.CPY;
+import com.cacib.loanscape.oidc.TokenSupplier;
+import com.jayway.jsonpath.TypeRef;
+import com.netflix.graphql.dgs.client.GraphQLResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Root;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class CommonRepositoryHelperTest {
+class ThirdPartyLoaderBeanTest {
 
-    @Test
-    void testMapProjectionWithDealEquityAmountProjection() {
-        // Arrange
-        CriteriaBuilder builder = mock(CriteriaBuilder.class);
-        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
-        Root<Object> root = mock(Root.class);
+    @Mock
+    private TokenSupplier tokenSupplier;
 
-        Path<Object> amountPath = mock(Path.class);
-        Path<Object> functionalIdPath = mock(Path.class);
-        Path<Object> functionalVersionPath = mock(Path.class);
+    @InjectMocks
+    private ThirdPartyLoaderBean thirdPartyLoaderBean;
 
-        var dealJoin = mock(Root.class);
-
-        when(root.join("deals")).thenReturn(dealJoin);
-        when(dealJoin.get("amount")).thenReturn(amountPath);
-        when(dealJoin.get("functionalId")).thenReturn(functionalIdPath);
-        when(dealJoin.get("functionalVersion")).thenReturn(functionalVersionPath);
-
-        // Act
-        CommonRepositoryHelper.mapProjection(root, query, "DealEquityAmountProjection");
-
-        // Assert
-        verify(query, times(1)).multiselect(
-                eq(amountPath),
-                eq(functionalIdPath),
-                eq(functionalVersionPath)
-        );
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        // Mocking the TokenSupplier
+        when(tokenSupplier.get()).thenReturn(() -> "mock-token");
     }
 
     @Test
-    void testMapProjectionWithTrancheSubParticipantSumProjection() {
+    void testInitAllCacibThirdParties() {
         // Arrange
-        CriteriaBuilder builder = mock(CriteriaBuilder.class);
-        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
-        Root<Object> root = mock(Root.class);
+        CPY mockCPY = new CPY();
+        mockCPY.setRicosId("testRicosId");
+        mockCPY.setIsCacibEntity("YES");
 
-        Path<Object> treasuryCommitmentAmountPath = mock(Path.class);
-        Path<Object> treasuryGrossCommitmentSharePath = mock(Path.class);
-        Path<Object> riskCommitmentAmountPath = mock(Path.class);
-        Path<Object> riskGrossCommitmentSharePath = mock(Path.class);
-
-        when(root.get("treasuryCommitmentAmount")).thenReturn(treasuryCommitmentAmountPath);
-        when(root.get("treasuryGrossCommitmentShare")).thenReturn(treasuryGrossCommitmentSharePath);
-        when(root.get("riskCommitmentAmount")).thenReturn(riskCommitmentAmountPath);
-        when(root.get("riskGrossCommitmentShare")).thenReturn(riskGrossCommitmentSharePath);
+        // Mocking the doQuery response
+        List<CPY> mockThirdParties = List.of(mockCPY);
+        doReturn(mockThirdParties).when(thirdPartyLoaderBean).doQuery(
+                any(String.class),
+                eq("ALL_CACIB_THIRDPARTIES"),
+                any(TypeRef.class),
+                any(ExchangeStrategies.class)
+        );
 
         // Act
-        CommonRepositoryHelper.mapProjection(root, query, "PoolTrancheSubParticipantSumProjection");
+        thirdPartyLoaderBean.initAllCacibThirdParties();
 
         // Assert
-        verify(query, times(1)).multiselect(
-                eq(treasuryCommitmentAmountPath),
-                eq(treasuryGrossCommitmentSharePath),
-                eq(riskCommitmentAmountPath),
-                eq(riskGrossCommitmentSharePath)
-        );
+        assertThat(thirdPartyLoaderBean.getCacibThirdParties()).isNotEmpty();
+        assertThat(thirdPartyLoaderBean.getCacibThirdParties().get(0).getRicosId()).isEqualTo("testRicosId");
+        verify(thirdPartyLoaderBean, times(1)).loadAllCacibThirdParties();
     }
 
     @Test
-    void testMapProjectionWithUnsupportedProjectionType() {
+    void testCreateIsCacibEntityMap() {
         // Arrange
-        CriteriaBuilder builder = mock(CriteriaBuilder.class);
-        CriteriaQuery<Object> query = mock(CriteriaQuery.class);
-        Root<Object> root = mock(Root.class);
+        CPY mockCPY = new CPY();
+        mockCPY.setRicosId("testRicosId");
+        mockCPY.setIsCacibEntity("YES");
+        thirdPartyLoaderBean.getCacibThirdParties().add(mockCPY);
 
         // Act
-        CommonRepositoryHelper.mapProjection(root, query, "UnsupportedProjection");
+        thirdPartyLoaderBean.createIsCacibEntityMap();
 
         // Assert
-        verifyNoInteractions(query);
+        Map<String, String> result = thirdPartyLoaderBean.getIsCacibEntityForRicosId();
+        assertThat(result).isNotEmpty();
+        assertThat(result.get("testRicosId")).isEqualTo("YES");
+    }
+
+    @Test
+    void testDoQueryHandlesNullResults() {
+        // Arrange
+        doReturn(null).when(thirdPartyLoaderBean).executeQuery(any(String.class), any());
+
+        // Act
+        Object result = thirdPartyLoaderBean.doQuery("testQuery", "testQueryName", new TypeRef<Object>() {});
+
+        // Assert
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void testDoAliasQueryHandlesEmptyAliases() {
+        // Arrange
+        List<String> aliases = Collections.emptyList();
+
+        // Act
+        Map<String, Object> result = thirdPartyLoaderBean.doAliasQuery(
+                "testQuery", "testQueryName", "", new TypeRef<Object>() {}, aliases);
+
+        // Assert
+        assertThat(result).isEmpty();
     }
 }
