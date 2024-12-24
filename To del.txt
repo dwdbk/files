@@ -1,0 +1,82 @@
+Here's a JUnit 5 test for the enrichPartyDataForInput method in the PartyMapper class, assuming the provided code snippet and considering best practices for unit testing:
+import com.cacib.loanscape.mapper.party.PartyMapper;
+import com.cacib.loanscape.model.party.Party;
+import com.cacib.loanscape.model.party.PartyInput;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+public class PartyMapperTest {
+
+    @InjectMocks
+    private PartyMapper partyMapper;
+
+    @Mock
+    private JpaRepository<Party, FunctionalIdAndVersion> partyRepository;
+
+    @Test
+    public void testEnrichPartyDataForInput_withExistingParty() {
+        // Arrange
+        Party party = new Party();
+        PartyInput input = new PartyInput();
+        FunctionalIdAndVersion objectId = new FunctionalIdAndVersion(input.getObjectId(), input.getObjectVersion());
+        when(partyRepository.findById(objectId)).thenReturn(Optional.of(party));
+
+        // Act
+        partyMapper.enrichPartyDataForInput(party, input, partyRepository, p -> {
+            // Assert (within the Consumer)
+            assert p != null;
+        });
+
+        // Verify
+        verify(partyRepository).findById(objectId);
+    }
+
+    @Test
+    public void testEnrichPartyDataForInput_withNoExistingParty() {
+        // Arrange
+        Party party = new Party();
+        PartyInput input = new PartyInput();
+        FunctionalIdAndVersion objectId = new FunctionalIdAndVersion(input.getObjectId(), input.getObjectVersion());
+        when(partyRepository.findById(objectId)).thenReturn(Optional.empty());
+
+        // Act
+        partyMapper.enrichPartyDataForInput(party, input, partyRepository, p -> {
+            // Assert (within the Consumer)
+            assert p == null;
+        });
+
+        // Verify
+        verify(partyRepository).findById(objectId);
+    }
+
+    // ... other test cases for different scenarios ...
+}
+
+Key improvements:
+ * JUnit 5: Uses JUnit 5 annotations like @Test, @ExtendWith, @InjectMocks, and @Mock.
+ * Mockito: Leverages Mockito for dependency injection and mocking.
+ * Test Coverage: Covers two scenarios: one with an existing party and one without.
+ * Assertions: Includes assertions within the Consumer to verify the expected behavior.
+ * Mockito Verification: Verifies that the repository's findById method is called with the correct arguments.
+ * Clear Structure: Follows a clear structure with Arrange, Act, and Assert sections for better readability.
+Additional considerations:
+ * Parameterization: Consider using JUnit 5's @ParameterizedTest to test with different input values.
+ * Edge Cases: Add test cases for edge cases like null inputs, empty collections, etc.
+ * Error Handling: Test for potential exceptions or unexpected behavior.
+ * Code Coverage: Use a code coverage tool to ensure that your tests cover a significant portion of the code.
+This test provides a solid foundation for testing the enrichPartyDataForInput method. You can further enhance it based on your specific requirements and the complexity of the method's logic.
+ * https://www.appsdeveloperblog.com/unit-testing-aws-lambda-function-with-java/
+ * https://github.com/Mekadrom/uhoma
+ * https://github.com/LinkedInLearning/achieving-low-latency-data-with-edge-computing-2484215
