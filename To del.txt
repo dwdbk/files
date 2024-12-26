@@ -1,82 +1,136 @@
-Here's a JUnit 5 test for the enrichPartyDataForInput method in the PartyMapper class, assuming the provided code snippet and considering best practices for unit testing:
-import com.cacib.loanscape.mapper.party.PartyMapper;
-import com.cacib.loanscape.model.party.Party;
-import com.cacib.loanscape.model.party.PartyInput;
+Here are some unit tests using JUnit 5 for the methods in the provided DealPartyMapper class:
+1. toDto() Method Test
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
-import java.util.function.Consumer;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.example.mapper.DealPartyMapper;
+import com.example.model.DealParty;
+import com.example.dto.PartyDto;
 
 @ExtendWith(MockitoExtension.class)
-public class PartyMapperTest {
+public class DealPartyMapperTest {
 
     @InjectMocks
-    private PartyMapper partyMapper;
+    private DealPartyMapper dealPartyMapper;
 
     @Mock
-    private JpaRepository<Party, FunctionalIdAndVersion> partyRepository;
+    private DealRepository dealRepo;
 
     @Test
-    public void testEnrichPartyDataForInput_withExistingParty() {
-        // Arrange
-        Party party = new Party();
-        PartyInput input = new PartyInput();
-        FunctionalIdAndVersion objectId = new FunctionalIdAndVersion(input.getObjectId(), input.getObjectVersion());
-        when(partyRepository.findById(objectId)).thenReturn(Optional.of(party));
+    public void testToDto() {
+        // Create a sample DealParty entity
+        DealParty dealParty = new DealParty();
+        dealParty.setClientFunctionalId("client123");
+        dealParty.setDeal(new Deal()); // Assuming Deal has a functionalId
 
-        // Act
-        partyMapper.enrichPartyDataForInput(party, input, partyRepository, p -> {
-            // Assert (within the Consumer)
-            assert p != null;
-        });
+        // Mock the dealRepo behavior (if necessary)
+        when(dealRepo.findByFunctionalId(dealParty.getDeal().getFunctionalId())).thenReturn(dealParty.getDeal());
 
-        // Verify
-        verify(partyRepository).findById(objectId);
+        // Call the toDto() method
+        PartyDto partyDto = dealPartyMapper.toDto(dealParty);
+
+        // Verify the expected values in the DTO
+        assertEquals(PartyAttachmentLevel.Values.DEAL, partyDto.getLevel());
+        assertEquals("client123", partyDto.getClientFunctionalId());
+        // Assert other expected fields in the DTO based on your mapping logic
     }
-
-    @Test
-    public void testEnrichPartyDataForInput_withNoExistingParty() {
-        // Arrange
-        Party party = new Party();
-        PartyInput input = new PartyInput();
-        FunctionalIdAndVersion objectId = new FunctionalIdAndVersion(input.getObjectId(), input.getObjectVersion());
-        when(partyRepository.findById(objectId)).thenReturn(Optional.empty());
-
-        // Act
-        partyMapper.enrichPartyDataForInput(party, input, partyRepository, p -> {
-            // Assert (within the Consumer)
-            assert p == null;
-        });
-
-        // Verify
-        verify(partyRepository).findById(objectId);
-    }
-
-    // ... other test cases for different scenarios ...
 }
 
-Key improvements:
- * JUnit 5: Uses JUnit 5 annotations like @Test, @ExtendWith, @InjectMocks, and @Mock.
- * Mockito: Leverages Mockito for dependency injection and mocking.
- * Test Coverage: Covers two scenarios: one with an existing party and one without.
- * Assertions: Includes assertions within the Consumer to verify the expected behavior.
- * Mockito Verification: Verifies that the repository's findById method is called with the correct arguments.
- * Clear Structure: Follows a clear structure with Arrange, Act, and Assert sections for better readability.
-Additional considerations:
- * Parameterization: Consider using JUnit 5's @ParameterizedTest to test with different input values.
- * Edge Cases: Add test cases for edge cases like null inputs, empty collections, etc.
- * Error Handling: Test for potential exceptions or unexpected behavior.
- * Code Coverage: Use a code coverage tool to ensure that your tests cover a significant portion of the code.
-This test provides a solid foundation for testing the enrichPartyDataForInput method. You can further enhance it based on your specific requirements and the complexity of the method's logic.
+2. fromInput() Method Test
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.example.mapper.DealPartyMapper;
+import com.example.model.DealParty;
+import com.example.dto.PartyInput;
+
+@ExtendWith(MockitoExtension.class)
+public class DealPartyMapperTest {
+
+    @InjectMocks
+    private DealPartyMapper dealPartyMapper;
+
+    @Mock
+    private DealRepository dealRepo;
+
+    @Test
+    public void testFromInput() {
+        // Create a sample PartyInput DTO
+        PartyInput partyInput = new PartyInput();
+        partyInput.setClientFunctionalId("client456");
+        partyInput.setDealId("deal123"); // Assuming Deal has an ID
+
+        // Call the fromInput() method
+        DealParty dealParty = dealPartyMapper.fromInput(partyInput);
+
+        // Verify the expected values in the entity
+        assertEquals("client456", dealParty.getClientFunctionalId());
+        assertEquals("deal123", dealParty.getDeal().getId()); // Assuming Deal has an ID
+
+        // Verify that the dealRepo was called to set the deal relationship (if applicable)
+        verify(dealRepo).findById(partyInput.getDealId());
+    }
+}
+
+3. fromInputForGlass() Method Test
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.example.mapper.DealPartyMapper;
+import com.example.dto.PartyForGlassInput;
+import com.example.dto.PartyInput;
+
+@ExtendWith(MockitoExtension.class)
+public class DealPartyMapperTest {
+
+    @InjectMocks
+    private DealPartyMapper dealPartyMapper;
+
+    @Mock
+    private DealRepository dealRepo;
+
+    @Test
+    public void testFromInputForGlass() {
+        // Create a sample PartyForGlassInput DTO
+        PartyForGlassInput partyForGlassInput = new PartyForGlassInput();
+        partyForGlassInput.setClientFunctionalId("client789");
+        partyForGlassInput.setDealId("deal456");
+
+        // Call the fromInputForGlass() method
+        PartyInput partyInput = dealPartyMapper.fromInputForGlass(partyForGlassInput);
+
+        // Verify the expected values in the PartyInput DTO
+        assertEquals("client789", partyInput.getClientFunctionalId());
+        assertEquals("deal456", partyInput.getDealId());
+    }
+}
+
+Additional Considerations:
+ * Edge Cases: Consider testing edge cases like null or empty inputs, invalid IDs, etc.
+ * Error Handling: If your methods throw exceptions, add tests to verify the expected exceptions are thrown under appropriate conditions.
+ * Enrichment Methods: Since enrichDealPartyDataForDto() and enrichDealPartyDataForInput() are protected methods, you'll need to create a subclass of DealPartyMapper to access them for testing.
+ * Deal Repository Mocking: If your tests rely on the dealRepo interaction, make sure to mock its behavior appropriately to isolate the mapper's logic.
+ * Assertions: Use appropriate assertions (e.g., assertEquals(), assertNotNull(), assertNull()) to verify the expected behavior of your methods.
+ * Meaningful Test Names: Use clear and concise test names that describe the specific behavior being tested.
+Remember to adapt these tests to your specific implementation and requirements.
+ * https://www.springboottutorial.com/mockito-tutorial-for-beginners
  * https://www.appsdeveloperblog.com/unit-testing-aws-lambda-function-with-java/
- * https://github.com/Mekadrom/uhoma
- * https://github.com/LinkedInLearning/achieving-low-latency-data-with-edge-computing-2484215
+ * https://github.com/bonigarcia/mastering-junit5
+ * https://blog.worldline.tech/2018/07/30/gradle-jupiter-kotlin.html
