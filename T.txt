@@ -1,0 +1,12 @@
+Bonjour Stéphane, Voilà les tâches effectuées par rapport au projet schedule-manager-bc
+1- création de projet depuis la dernière version de loanscapSprinBootStarter 6.3.12
+2- initialisation de projet avec graphql, database(postgresSQL),liquibase, connexion kafka, authentification keycloak,
+3- création de helloworld query pour tester le fonctionnement de l'api. (link) 
+4- création de l'application dans ARGCD : lscsad-schedule-manager-dev
+
+Reste à faire/besoins :
+1- les identifiants username/password de la base de données(name =schedule-manager-bc)
+2- ajouté les password dans vault ansi le secret client de keycloak 
+3- connect ARGCD avec gitlab ne fonctionne pas (gît)
+4- déploiement de l'application en dev1
+5- partie front pas encore fait !?
