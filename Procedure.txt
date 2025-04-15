@@ -1,0 +1,170 @@
+// StepMode.java package com.example.executor;
+
+public enum StepMode { CALL_SQL, SIMPLE_JDBC_CALL }
+
+// SqlStep.java package com.example.executor;
+
+import org.springframework.jdbc.core.RowMapper; import java.util.Map; import java.util.function.Function;
+
+public class SqlStep<T, I> { private final StepMode mode; private final String sqlFileOrProcName; private final RowMapper<T> rowMapper; private final Function<I, Map<String, Object>> paramMapper; private final boolean isList; private final String resultKey;
+
+public SqlStep(StepMode mode,
+               String sqlFileOrProcName,
+               RowMapper<T> rowMapper,
+               Function<I, Map<String, Object>> paramMapper,
+               boolean isList,
+               String resultKey) {
+    this.mode = mode;
+    this.sqlFileOrProcName = sqlFileOrProcName;
+    this.rowMapper = rowMapper;
+    this.paramMapper = paramMapper;
+    this.isList = isList;
+    this.resultKey = resultKey;
+}
+
+public StepMode getMode() { return mode; }
+public String getSqlFileOrProcName() { return sqlFileOrProcName; }
+public RowMapper<T> getRowMapper() { return rowMapper; }
+public Function<I, Map<String, Object>> getParamMapper() { return paramMapper; }
+public boolean isList() { return isList; }
+public String getResultKey() { return resultKey; }
+
+}
+
+// SqlFileReader.java package com.example.executor;
+
+import org.springframework.core.io.ClassPathResource; import org.springframework.stereotype.Component;
+
+import java.io.IOException; import java.nio.file.Files; import java.nio.file.Path;
+
+@Component public class SqlFileReader {
+
+public String readSql(String filename) throws IOException {
+    Path path = new ClassPathResource("sql/" + filename).getFile().toPath();
+    return Files.readString(path);
+}
+
+}
+
+// MultiStepSqlExecutor.java package com.example.executor;
+
+import org.springframework.beans.factory.annotation.Autowired; import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate; import org.springframework.jdbc.core.namedparam.MapSqlParameterSource; import org.springframework.jdbc.core.simple.SimpleJdbcCall; import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource; import java.io.IOException; import java.util.List; import java.util.Map;
+
+@Component public class MultiStepSqlExecutor {
+
+private final NamedParameterJdbcTemplate namedJdbc;
+private final SqlFileReader sqlFileReader;
+private final DataSource dataSource;
+
+@Autowired
+public MultiStepSqlExecutor(NamedParameterJdbcTemplate namedJdbc, SqlFileReader sqlFileReader, DataSource dataSource) {
+    this.namedJdbc = namedJdbc;
+    this.sqlFileReader = sqlFileReader;
+    this.dataSource = dataSource;
+}
+
+public <T> T executeSteps(List<SqlStep<?, ?>> steps) throws IOException {
+    Object input = null;
+    Object output = null;
+
+    for (SqlStep<?, ?> step : steps) {
+        Map<String, Object> params = step.getParamMapper().apply(input);
+
+        if (step.getMode() == StepMode.CALL_SQL) {
+            String sql = sqlFileReader.readSql(step.getSqlFileOrProcName());
+            if (step.isList()) {
+                List<?> resultList = namedJdbc.query(sql, new MapSqlParameterSource(params), step.getRowMapper());
+                input = resultList;
+                output = resultList;
+            } else {
+                Object result = namedJdbc.queryForObject(sql, new MapSqlParameterSource(params), step.getRowMapper());
+                input = result;
+                output = result;
+            }
+        } else if (step.getMode() == StepMode.SIMPLE_JDBC_CALL) {
+            SimpleJdbcCall jdbcCall = new SimpleJdbcCall(dataSource)
+                    .withProcedureName(step.getSqlFileOrProcName())
+                    .returningResultSet(step.getResultKey(), step.getRowMapper());
+            Map<String, Object> result = jdbcCall.execute(params);
+            Object mappedResult = result.get(step.getResultKey());
+            if (step.isList()) {
+                input = mappedResult;
+                output = mappedResult;
+            } else {
+                List<?> list = (List<?>) mappedResult;
+                Object first = list.isEmpty() ? null : list.get(0);
+                input = first;
+                output = first;
+            }
+        }
+    }
+    return (T) output;
+}
+
+}
+
+// QueryService.java package com.example.service;
+
+import com.example.executor.*; import org.springframework.beans.factory.annotation.Autowired; import org.springframework.stereotype.Service; import java.io.IOException; import java.util.List; import java.util.Map;
+
+@Service public class QueryService {
+
+@Autowired private MultiStepSqlExecutor executor;
+
+public Object runExample() throws IOException {
+    List<SqlStep<?, ?>> steps = List.of(
+        new SqlStep<>(
+            StepMode.CALL_SQL,
+            "call_get_active_user.sql",
+            (rs, rowNum) -> Map.of("id", rs.getLong("id")),
+            prev -> Map.of(),
+            false,
+            null
+        ),
+        new SqlStep<>(
+            StepMode.SIMPLE_JDBC_CALL,
+            "get_user_orders",
+            (rs, rowNum) -> Map.of("orderId", rs.getLong("order_id")),
+            obj1 -> Map.of("userId", ((Map<String, Object>) obj1).get("id")),
+            true,
+            "orders"
+        ),
+        new SqlStep<>(
+            StepMode.SIMPLE_JDBC_CALL,
+            "get_order_details",
+            (rs, rowNum) -> Map.of("detailId", rs.getLong("detail_id")),
+            obj -> Map.of("orderId", ((List<Map<String, Object>>) obj).get(0).get("orderId")),
+            true,
+            "details"
+        ),
+        new SqlStep<>(
+            StepMode.CALL_SQL,
+            "call_get_shipping_status.sql",
+            (rs, rowNum) -> Map.of("status", rs.getString("status")),
+            obj -> Map.of("orderId", ((List<Map<String, Object>>) obj).get(0).get("orderId")),
+            false,
+            null
+        ),
+        new SqlStep<>(
+            StepMode.SIMPLE_JDBC_CALL,
+            "get_invoice_info",
+            (rs, rowNum) -> Map.of("invoiceId", rs.getString("invoice_id")),
+            obj -> Map.of("orderId", ((List<Map<String, Object>>) obj).get(0).get("orderId")),
+            true,
+            "invoices"
+        )
+    );
+
+    return executor.executeSteps(steps);
+}
+
+}
+
+// call_get_active_user.sql CALL get_active_user();
+
+// call_get_shipping_status.sql CALL get_shipping_status(:orderId);
+
+// application.properties spring.datasource.url=jdbc:postgresql://localhost:5432/yourdb spring.datasource.username=postgres spring.datasource.password=yourpassword spring.datasource.driver-class-name=org.postgresql.Driver
+
