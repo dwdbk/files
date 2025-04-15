@@ -1,0 +1,213 @@
+Awesome — let’s level this up.
+
+We’ll build a flexible multi-step SQL executor in Spring that can:
+
+1. Run 5+ SQL queries from files
+
+
+2. Use the result of each step as input to the next
+
+
+3. Return the final result (or all intermediate results if needed)
+
+
+4. Handle single or multiple results per step
+
+
+
+
+---
+
+Step-by-step
+
+1. Define a SqlStep Class
+
+Each step represents:
+
+A SQL file path
+
+A mapper for the result
+
+A parameter mapping function (based on previous results)
+
+
+public class SqlStep<T, I> {
+    private final String sqlFile;
+    private final RowMapper<T> rowMapper;
+    private final Function<I, Map<String, Object>> paramMapper;
+    private final boolean isList;
+
+    public SqlStep(String sqlFile,
+                   RowMapper<T> rowMapper,
+                   Function<I, Map<String, Object>> paramMapper,
+                   boolean isList) {
+        this.sqlFile = sqlFile;
+        this.rowMapper = rowMapper;
+        this.paramMapper = paramMapper;
+        this.isList = isList;
+    }
+
+    public String getSqlFile() {
+        return sqlFile;
+    }
+
+    public RowMapper<T> getRowMapper() {
+        return rowMapper;
+    }
+
+    public Function<I, Map<String, Object>> getParamMapper() {
+        return paramMapper;
+    }
+
+    public boolean isList() {
+        return isList;
+    }
+}
+
+
+---
+
+2. Update the Executor to Handle Multiple Steps
+
+@Component
+public class MultiStepSqlExecutor {
+
+    private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final SqlFileReader sqlFileReader;
+
+    @Autowired
+    public MultiStepSqlExecutor(NamedParameterJdbcTemplate jdbcTemplate, SqlFileReader sqlFileReader) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.sqlFileReader = sqlFileReader;
+    }
+
+    public <T> T executeSteps(List<SqlStep<?, ?>> steps) throws IOException {
+        Object input = null;
+        Object output = null;
+
+        for (SqlStep<?, ?> step : steps) {
+            String sql = sqlFileReader.readSql(step.getSqlFile());
+            Map<String, Object> params = step.getParamMapper().apply(input);
+
+            if (step.isList()) {
+                List<?> results = jdbcTemplate.query(sql, new MapSqlParameterSource(params), step.getRowMapper());
+                input = results;
+                output = results;
+            } else {
+                Object result = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource(params), step.getRowMapper());
+                input = result;
+                output = result;
+            }
+        }
+
+        return (T) output;
+    }
+}
+
+
+---
+
+3. Example Usage with 5 SQL Files
+
+@Service
+public class QueryService {
+
+    @Autowired
+    private MultiStepSqlExecutor executor;
+
+    public Object5 getFinalObject() throws IOException {
+        List<SqlStep<?, ?>> steps = List.of(
+            new SqlStep<>(
+                "query1.sql",
+                (rs, rowNum) -> {
+                    Object1 o = new Object1();
+                    o.setId(rs.getLong("id"));
+                    o.setName(rs.getString("name"));
+                    return o;
+                },
+                prev -> Map.of(), false
+            ),
+            new SqlStep<>(
+                "query2.sql",
+                (rs, rowNum) -> {
+                    Object2 o = new Object2();
+                    o.setUserId(rs.getLong("user_id"));
+                    o.setData(rs.getString("data"));
+                    return o;
+                },
+                obj1 -> Map.of("userId", ((Object1) obj1).getId()), false
+            ),
+            new SqlStep<>(
+                "query3.sql",
+                (rs, rowNum) -> {
+                    Object3 o = new Object3();
+                    o.setRef(rs.getString("ref"));
+                    return o;
+                },
+                obj2 -> Map.of("userData", ((Object2) obj2).getData()), true
+            ),
+            new SqlStep<>(
+                "query4.sql",
+                (rs, rowNum) -> {
+                    Object4 o = new Object4();
+                    o.setCount(rs.getInt("cnt"));
+                    return o;
+                },
+                obj3List -> {
+                    List<Object3> list = (List<Object3>) obj3List;
+                    return Map.of("refCount", list.size());
+                },
+                false
+            ),
+            new SqlStep<>(
+                "query5.sql",
+                (rs, rowNum) -> {
+                    Object5 o = new Object5();
+                    o.setSummary(rs.getString("summary"));
+                    return o;
+                },
+                obj4 -> Map.of("cnt", ((Object4) obj4).getCount()), false
+            )
+        );
+
+        return executor.executeSteps(steps);
+    }
+}
+
+
+---
+
+4. Each SQL File Example
+
+Just place your .sql files in resources/sql/ as before:
+
+query1.sql
+
+query2.sql
+
+...
+
+query5.sql
+
+
+
+---
+
+5. Result
+
+You now have:
+
+A reusable, ordered multi-step SQL executor
+
+Support for intermediate single or list results
+
+Parameter passing from one result to the next
+
+External SQL file handling
+
+
+
+---
+
+Want me to wrap this into a Spring Boot starter-style module or generate a base project for it?
+
