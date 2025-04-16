@@ -1,3 +1,29 @@
+public class User {
+    private Long id;
+    private String name;
+    private String email;
+
+    public User() {}
+    public User(Long id, String name, String email) {
+        this.id = id; this.name = name; this.email = email;
+    }
+
+    // Getters
+}
+
+public class Product {
+    private Long id;
+    private String name;
+    private double price;
+
+    public Product() {}
+    public Product(Long id, String name, double price) {
+        this.id = id; this.name = name; this.price = price;
+    }
+
+    // Getters
+}
+
 Nice — combining progress tracking with multi-file ZIP streaming adds polish to your export process, especially for large datasets.
 
 Here’s how we’ll do it:
