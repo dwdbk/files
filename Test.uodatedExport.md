@@ -202,3 +202,23 @@ Cache/export result on disk or cloud?
 
 Say the word!
 
+
+private String getUniqueSheetName(SXSSFWorkbook workbook, String baseName) {
+    String cleanName = baseName.replaceAll("[\\\\/*?:\\]", "_");
+    cleanName = cleanName.substring(0, Math.min(31, cleanName.length())); // Excel limit
+
+    String name = cleanName;
+    int i = 1;
+    while (workbook.getSheet(name) != null) {
+        name = cleanName + "_" + i++;
+        if (name.length() > 31) {
+            name = name.substring(0, 31); // Truncate again if needed
+        }
+    }
+    return name;
+}
+String safeSheetName = getUniqueSheetName(workbook, sheetName);
+Sheet sheet = workbook.createSheet(safeSheetName);
+System.out.println("Creating sheet: " + safeSheetName);
+
+
