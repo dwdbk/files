@@ -222,3 +222,100 @@ Sheet sheet = workbook.createSheet(safeSheetName);
 System.out.println("Creating sheet: " + safeSheetName);
 
 
+Perfect — here's your updated exportToSingleExcel method with both Option 1 and Option 2 handled:
+
+Phase 1 (Parallel): Prepares the data (if needed).
+
+Phase 2 (Serial + Synchronized): Sheet creation and writing happen safely on a single workbook.
+
+
+
+---
+
+✅ Updated exportToSingleExcel Method:
+
+public void exportToSingleExcel(Map<String, List<?>> dataMap, OutputStream out, String sessionId) throws Exception {
+    try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, dataMap.size()));
+        List<Future<SheetTask>> futures = new ArrayList<>();
+        AtomicInteger done = new AtomicInteger(0);
+        int total = dataMap.size();
+
+        // Phase 1: Process data in parallel
+        for (Map.Entry<String, List<?>> entry : dataMap.entrySet()) {
+            String sheetName = entry.getKey();
+            List<?> sheetData = entry.getValue();
+
+            futures.add(executor.submit(() -> {
+                // You can prepare additional processing here if needed
+                return new SheetTask(sheetName, sheetData);
+            }));
+        }
+
+        // Phase 2: Serial sheet creation (synchronized on workbook)
+        for (Future<SheetTask> future : futures) {
+            SheetTask task = future.get();
+
+            synchronized (workbook) {
+                String safeSheetName = getUniqueSheetName(workbook, task.sheetName());
+                Sheet sheet = workbook.createSheet(safeSheetName);
+                writeHeader(sheet, task.data());
+                writeData(sheet, task.data(), getStyleFactory(workbook)); // Your existing method
+            }
+
+            int progress = (int) ((done.incrementAndGet() / (double) total) * 100);
+            progressService.setProgress(sessionId, progress);
+            webSocketController.sendProgress(sessionId, progress);
+        }
+
+        executor.shutdown();
+        workbook.write(out);
+        workbook.dispose();
+        progressService.clearProgress(sessionId);
+    }
+}
+
+
+---
+
+Supporting Record / Class:
+
+You can define this at the bottom of the class or as a static nested class:
+
+private record SheetTask(String sheetName, List<?> data) {}
+
+
+---
+
+Your Existing Helpers Assumed:
+
+getUniqueSheetName(workbook, name) – ensures valid and unique sheet name
+
+writeHeader(sheet, data) – writes column headers
+
+writeData(sheet, data, styleFactory) – writes row data
+
+getStyleFactory(workbook) – returns styles (e.g. date, number, etc.)
+
+
+
+---
+
+This version is:
+
+Thread-safe
+
+Parallel-friendly
+
+No duplicate sheet creation
+
+No ZIP nesting errors
+
+Supports WebSocket progress updates
+
+
+Want me to plug in the date formatting and dynamic field logic in writeData() too?
+
+
+
+
