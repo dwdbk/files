@@ -238,3 +238,98 @@ Field-level control per class
 
 Need help with Swagger UI support for this API or a UI dashboard to manage it visually?
 
+
+Got it — here's the improved logic for getExportFields():
+
+If a field is in userColumnConfigs:
+→ Use label, hidden, and order from there.
+
+If it's not in userColumnConfigs:
+→ Use annotation values (@ExcelColumn), if present.
+→ Otherwise, fall back to field name & order.
+
+Hidden fields are excluded regardless.
+
+
+
+---
+
+✅ Updated getExportFields() with fallback logic
+
+private List<ExportField> getExportFields(Class<?> clazz) {
+    return exportFieldCache.computeIfAbsent(clazz, clz -> {
+        Field[] declaredFields = clz.getDeclaredFields();
+        Map<String, Field> fieldMap = Arrays.stream(declaredFields)
+            .collect(Collectors.toMap(Field::getName, f -> f));
+
+        String key = clazz.getSimpleName();
+        Map<String, ColumnConfig> userConfigMap = Optional.ofNullable(userColumnConfigs.get(key))
+            .map(configs -> configs.stream().collect(Collectors.toMap(ColumnConfig::fieldName, c -> c)))
+            .orElse(Collections.emptyMap());
+
+        List<ExportField> result = new ArrayList<>();
+        int defaultOrder = 0;
+
+        for (Field field : declaredFields) {
+            String fieldName = field.getName();
+            ColumnConfig userCfg = userConfigMap.get(fieldName);
+            ExcelColumn ann = field.getAnnotation(ExcelColumn.class);
+
+            // Hidden: skip if user or annotation marks as hidden
+            if ((userCfg != null && userCfg.hidden()) || (ann != null && ann.hidden())) continue;
+
+            // Determine label
+            String label = userCfg != null
+                ? (!userCfg.label().isEmpty() ? userCfg.label() : fieldName)
+                : (ann != null && !ann.label().isEmpty() ? ann.label() : fieldName);
+
+            // Determine order
+            int order = userCfg != null
+                ? userColumnConfigs.get(key).indexOf(userCfg)
+                : (ann != null ? ann.order() : defaultOrder++);
+
+            // Determine getter
+            String getter = ann != null && !ann.getter().isEmpty()
+                ? ann.getter()
+                : "get" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+
+            try {
+                clz.getMethod(getter);
+            } catch (NoSuchMethodException e) {
+                throw new IllegalStateException("Missing getter '" + getter + "' for '" + fieldName + "'");
+            }
+
+            result.add(new ExportField(fieldName, label, order, getter));
+        }
+
+        result.sort(Comparator.comparingInt(ExportField::order));
+        return result;
+    });
+}
+
+
+---
+
+Highlights:
+
+User config overrides annotation
+
+Fallback to annotation or default name/order
+
+Hidden fields filtered out
+
+Order from userColumnConfigs uses its list position
+
+
+
+---
+
+Would you like:
+
+Support for field groups (per export context)?
+
+Option to include @Transient or @JsonIgnore fields selectively?
+
+
+
+
